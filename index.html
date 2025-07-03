@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .toast { visibility: hidden; min-width: 250px; margin-left: -125px; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 100; left: 50%; bottom: 30px; opacity: 0; transition: opacity 0.5s, bottom 0.5s, visibility 0.5s; }
+    .toast.show { visibility: visible; opacity: 1; bottom: 50px; }
+    .toast.success { background-color: #28a745; }
+    .toast.error { background-color: #dc3545; }
+    .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+    .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 900px; border-radius: 8px; }
+    .tab { display: none; }
+    .tab.active { display: block; }
+    .nav-tab { cursor: pointer; padding: 10px 20px; border: 1px solid #ddd; background: #f1f1f1; }
+    .nav-tab.active { background: #fff; border-bottom: 2px solid #3b82f6; }
+    .return-item-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+    <header class="text-center mb-8">
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-700">Hotel Gate Pass Management System</h1>
+      <p class="text-gray-500 mt-2">Create and manage Returnable (RGP) & Non-Returnable (NRGP) passes</p>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="flex border-b mb-6">
+      <div class="nav-tab active" onclick="openTab('createPassTab')">Create Pass</div>
+      <div class="nav-tab" onclick="openTab('pendingPassesTab')">Pending Passes</div>
+      <div class="nav-tab" onclick="openTab('overduePassesTab')">Overdue Passes</div>
+      <div class="nav-tab" onclick="openTab('userManagementTab')">User Management</div>
+    </div>
+
+    <!-- Create Pass Tab -->
+    <div id="createPassTab" class="tab active">
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        <!-- Left Column: Create New Gate Pass Form -->
+        <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
+          <h2 class="text-2xl font-semibold mb-6 border-b pb-3 text-blue-600">Create New Gate Pass</h2>
+          <form id="gatePassForm">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="md:col-span-2"><label for="passType" class="block text-sm font-medium text-gray-700 mb-1">Pass Type</label><select id="passType" name="passType" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"><option value="RGP">Returnable Gate Pass (RGP)</option><option value="NRGP">Non-Returnable Gate Pass (NRGP)</option></select></div>
+              <div><label for="issuedTo" class="block text-sm font-medium text-gray-700 mb-1">Issued To (Name/Vendor)</label><input type="text" id="issuedTo" name="issuedTo" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></div>
+              <div><label for="department" class="block text-sm font-medium text-gray-700 mb-1">Department</label><select id="department" name="department" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"><option>F&B Service</option><option>F&B Production</option><option>Housekeeping</option><option>Front Office</option><option>Engineering</option><option>Sales & Marketing</option><option>HR</option><option>Security</option><option>Other</option></select></div>
+              <div><label for="issueDate" class="block text-sm font-medium text-gray-700 mb-1">Issue Date</label><input type="date" id="issueDate" name="issueDate" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></div>
+              <div id="returnDateContainer"><label for="expectedReturnDate" class="block text-sm font-medium text-gray-700 mb-1">Expected Return Date</label><input type="date" id="expectedReturnDate" name="expectedReturnDate" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></div>
+              <div class="md:col-span-2"><label for="purpose" class="block text-sm font-medium text-gray-700 mb-1">Purpose / Reason for Outgoing</label><input type="text" id="purpose" name="purpose" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Repair, Sale, Transfer"></div>
+              <div class="md:col-span-2"><label for="authorizedBy" class="block text-sm font-medium text-gray-700 mb-1">Authorized By</label><input type="text" id="authorizedBy" name="authorizedBy" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Manager's Name"></div>
+              <div class="md:col-span-2"><label for="remarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks (Optional)</label><input type="text" id="remarks" name="remarks" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></div>
+            </div>
+
+            <!-- Multiple Items Section -->
+            <div class="mt-6 pt-4 border-t">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-medium text-gray-800">Items</h3>
+                    <button type="button" id="addItemBtn" class="px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">+ Add Item</button>
+                </div>
+                <div id="itemsContainer" class="space-y-3">
+                    <!-- Item rows will be injected here -->
+                </div>
+            </div>
+            
+            <!-- Image Upload Section -->
+            <div class="mt-6 pt-4 border-t">
+                <h3 class="text-lg font-medium text-gray-800 mb-2">Attach Image (Optional)</h3>
+                <input type="file" id="imageUpload" name="imageUpload" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <img id="imagePreview" class="mt-4 rounded-md hidden max-h-48" src="" alt="Image Preview"/>
+            </div>
+
+            <div class="mt-8 text-right">
+              <button type="button" id="previewBtn" class="mr-4 inline-flex justify-center py-3 px-8 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Preview</button>
+              <button type="submit" id="submitButton" class="inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300">Create Pass</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Right Column: Pass Preview -->
+        <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+          <h2 class="text-2xl font-semibold mb-6 border-b pb-3 text-green-600">Pass Preview</h2>
+          <div id="passPreview" class="p-4 border border-gray-200 rounded-md">
+            <div class="text-center mb-4">
+              <h3 class="text-xl font-bold" id="previewPassType">RGP</h3>
+              <p class="text-sm text-gray-500">Gate Pass ID: <span id="previewPassId">NEW</span></p>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-sm mb-4">
+              <div><span class="font-medium">Issued To:</span> <span id="previewIssuedTo">-</span></div>
+              <div><span class="font-medium">Department:</span> <span id="previewDepartment">-</span></div>
+              <div><span class="font-medium">Issue Date:</span> <span id="previewIssueDate">-</span></div>
+              <div><span class="font-medium">Return Date:</span> <span id="previewReturnDate">-</span></div>
+              <div class="col-span-2"><span class="font-medium">Purpose:</span> <span id="previewPurpose">-</span></div>
+              <div class="col-span-2"><span class="font-medium">Authorized By:</span> <span id="previewAuthorizedBy">-</span></div>
+            </div>
+            <div class="border-t pt-2">
+              <h4 class="font-medium mb-2">Items:</h4>
+              <div id="previewItems" class="text-sm space-y-1"></div>
+            </div>
+            <div class="border-t pt-2 mt-4">
+              <h4 class="font-medium mb-2">Remarks:</h4>
+              <p id="previewRemarks" class="text-sm">-</p>
+            </div>
+            <div class="border-t pt-2 mt-4">
+              <img id="previewImage" class="rounded-md max-h-32 hidden mx-auto" src="" alt="Preview Image"/>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Passes Tab -->
+    <div id="pendingPassesTab" class="tab">
+      <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold mb-6 border-b pb-3 text-green-600">Pending Returnable Passes (RGP)</h2>
+        <div class="mb-4 flex justify-between">
+          <div class="flex items-center">
+            <label for="pendingFilter" class="mr-2">Filter:</label>
+            <select id="pendingFilter" class="p-2 border rounded">
+              <option value="all">All Pending</option>
+              <option value="overdue">Overdue</option>
+              <option value="dueToday">Due Today</option>
+              <option value="dueThisWeek">Due This Week</option>
+            </select>
+          </div>
+          <button id="printPendingReport" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Print Report</button>
+        </div>
+        <div id="pendingPassesContainer" class="overflow-x-auto">
+            <div id="loader" class="flex justify-center items-center h-40"><div class="loader"></div></div>
+            <table id="pendingTable" class="min-w-full divide-y divide-gray-200 hidden">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pass ID</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issued To</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue Date</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Return</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="pendingTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+            </table>
+            <p id="noPendingMessage" class="text-center text-gray-500 mt-8 hidden">No pending returnable passes found.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overdue Passes Tab -->
+    <div id="overduePassesTab" class="tab">
+      <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold mb-6 border-b pb-3 text-red-600">Overdue Returnable Passes</h2>
+        <div class="mb-4">
+          <button id="printOverdueReport" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Print Report</button>
+        </div>
+        <div id="overduePassesContainer" class="overflow-x-auto">
+            <div id="overdueLoader" class="flex justify-center items-center h-40"><div class="loader"></div></div>
+            <table id="overdueTable" class="min-w-full divide-y divide-gray-200 hidden">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pass ID</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issued To</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Overdue</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="overdueTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+            </table>
+            <p id="noOverdueMessage" class="text-center text-gray-500 mt-8 hidden">No overdue passes found.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Management Tab -->
+    <div id="userManagementTab" class="tab">
+      <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold mb-6 border-b pb-3 text-purple-600">User Management</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h3 class="text-lg font-medium mb-4">Add New User</h3>
+            <form id="userForm" class="space-y-4">
+              <div>
+                <label for="userEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" id="userEmail" required class="w-full p-2 border border-gray-300 rounded-md">
+              </div>
+              <div>
+                <label for="userName" class="block text-sm font-medium text-gray-700">Full Name</label>
+                <input type="text" id="userName" required class="w-full p-2 border border-gray-300 rounded-md">
+              </div>
+              <div>
+                <label for="userRole" class="block text-sm font-medium text-gray-700">Role</label>
+                <select id="userRole" required class="w-full p-2 border border-gray-300 rounded-md">
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label for="userDepartment" class="block text-sm font-medium text-gray-700">Department</label>
+                <select id="userDepartment" required class="w-full p-2 border border-gray-300 rounded-md">
+                  <option>F&B Service</option>
+                  <option>F&B Production</option>
+                  <option>Housekeeping</option>
+                  <option>Front Office</option>
+                  <option>Engineering</option>
+                  <option>Sales & Marketing</option>
+                  <option>HR</option>
+                  <option>Security</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Add User</button>
+            </form>
+          </div>
+          <div>
+            <h3 class="text-lg font-medium mb-4">Existing Users</h3>
+            <div id="usersContainer" class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Details Modal -->
+  <div id="detailsModal" class="modal">
+    <div class="modal-content">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="text-2xl font-bold text-gray-800">Pass Details</h3>
+        <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+      </div>
+      <div id="modalContent" class="mt-4 max-h-[70vh] overflow-y-auto p-2"></div>
+    </div>
+  </div>
+
+  <!-- Return Modal -->
+  <div id="returnModal" class="modal">
+    <div class="modal-content">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="text-2xl font-bold text-gray-800">Mark Items as Returned</h3>
+        <button id="closeReturnModalBtn" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+      </div>
+      <div id="returnModalContent" class="mt-4 max-h-[70vh] overflow-y-auto p-2">
+        <div class="mb-4">
+          <label for="actualReturnDate" class="block text-sm font-medium text-gray-700 mb-1">Actual Return Date</label>
+          <input type="date" id="actualReturnDate" class="w-full p-2 border border-gray-300 rounded-md">
+        </div>
+        <div class="mb-4">
+          <label for="returnRemarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+          <input type="text" id="returnRemarks" class="w-full p-2 border border-gray-300 rounded-md">
+        </div>
+        <div class="border-t pt-4">
+          <h4 class="font-medium mb-2">Items to Return:</h4>
+          <div id="returnItemsContainer" class="space-y-3"></div>
+        </div>
+        <div class="mt-6 text-right">
+          <button id="submitReturnBtn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Submit Return</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="text-2xl font-bold text-gray-800">Edit Gate Pass</h3>
+        <button id="closeEditModalBtn" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+      </div>
+      <div id="editModalContent" class="mt-4 max-h-[70vh] overflow-y-auto p-2"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // Initialize jsPDF
+    const { jsPDF } = window.jspdf;
+    
+    window.onload = function() {
+      // --- GLOBAL STATE ---
+      let fileData = null;
+      let pendingPassesData = [];
+      let overduePassesData = [];
+      let usersData = [];
+      let currentUserRole = 'user'; // Default to user, should be set after login
+      let currentPassBeingReturned = null;
+      let currentPassBeingEdited = null;
+
+      // --- ELEMENT SELECTORS ---
+      const form = document.getElementById('gatePassForm');
+      const passTypeSelect = document.getElementById('passType');
+      const returnDateContainer = document.getElementById('returnDateContainer');
+      const expectedReturnDateInput = document.getElementById('expectedReturnDate');
+      const issueDateInput = document.getElementById('issueDate');
+      const submitButton = document.getElementById('submitButton');
+      const previewBtn = document.getElementById('previewBtn');
+      const loader = document.getElementById('loader');
+      const pendingTable = document.getElementById('pendingTable');
+      const noPendingMessage = document.getElementById('noPendingMessage');
+      const pendingTableBody = document.getElementById('pendingTableBody');
+      const overdueLoader = document.getElementById('overdueLoader');
+      const overdueTable = document.getElementById('overdueTable');
+      const noOverdueMessage = document.getElementById('noOverdueMessage');
+      const overdueTableBody = document.getElementById('overdueTableBody');
+      const toast = document.getElementById('toast');
+      const addItemBtn = document.getElementById('addItemBtn');
+      const itemsContainer = document.getElementById('itemsContainer');
+      const imageUpload = document.getElementById('imageUpload');
+      const imagePreview = document.getElementById('imagePreview');
+      const detailsModal = document.getElementById('detailsModal');
+      const closeModalBtn = document.getElementById('closeModalBtn');
+      const modalContent = document.getElementById('modalContent');
+      const returnModal = document.getElementById('returnModal');
+      const closeReturnModalBtn = document.getElementById('closeReturnModalBtn');
+      const returnModalContent = document.getElementById('returnModalContent');
+      const returnItemsContainer = document.getElementById('returnItemsContainer');
+      const submitReturnBtn = document.getElementById('submitReturnBtn');
+      const actualReturnDateInput = document.getElementById('actualReturnDate');
+      const returnRemarksInput = document.getElementById('returnRemarks');
+      const editModal = document.getElementById('editModal');
+      const closeEditModalBtn = document.getElementById('closeEditModalBtn');
+      const editModalContent = document.getElementById('editModalContent');
+      const pendingFilter = document.getElementById('pendingFilter');
+      const printPendingReport = document.getElementById('printPendingReport');
+      const printOverdueReport = document.getElementById('printOverdueReport');
+      const userForm = document.getElementById('userForm');
+      const usersTableBody = document.getElementById('usersTableBody');
+
+      // Preview elements
+      const previewPassType = document.getElementById('previewPassType');
+      const previewPassId = document.getElementById('previewPassId');
+      const previewIssuedTo = document.getElementById('previewIssuedTo');
+      const previewDepartment = document.getElementById('previewDepartment');
+      const previewIssueDate = document.getElementById('previewIssueDate');
+      const previewReturnDate = document.getElementById('previewReturnDate');
+      const previewPurpose = document.getElementById('previewPurpose');
+      const previewAuthorizedBy = document.getElementById('previewAuthorizedBy');
+      const previewItems = document.getElementById('previewItems');
+      const previewRemarks = document.getElementById('previewRemarks');
+      const previewImage = document.getElementById('previewImage');
+
+      // --- INITIALIZATION ---
+      issueDateInput.valueAsDate = new Date();
+      loadPendingReturnablePasses();
+      loadOverduePasses();
+      loadUsers();
+      addItemRow(); // Add one item row by default
+      passTypeSelect.dispatchEvent(new Event('change')); // Initialize RGP field visibility
+      updatePreview(); // Initialize preview
+
+      // --- EVENT LISTENERS ---
+      passTypeSelect.addEventListener('change', () => {
+        const isRGP = passTypeSelect.value === 'RGP';
+        returnDateContainer.style.display = isRGP ? 'block' : 'none';
+        expectedReturnDateInput.required = isRGP;
+        updatePreview();
+      });
+
+      // Form field changes
+      ['issuedTo', 'department', 'issueDate', 'expectedReturnDate', 'purpose', 'authorizedBy', 'remarks'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updatePreview);
+      });
+
+      addItemBtn.addEventListener('click', addItemRow);
+      
+      itemsContainer.addEventListener('click', e => {
+        if (e.target.classList.contains('remove-item-btn')) {
+          e.target.closest('.item-row').remove();
+          updatePreview();
+        }
+      });
+
+      // Item quantity/description changes
+      itemsContainer.addEventListener('input', (e) => {
+        if (e.target.classList.contains('item-desc') || e.target.classList.contains('item-qty') || e.target.classList.contains('item-unit')) {
+          updatePreview();
+        }
+      });
+
+      imageUpload.addEventListener('change', handleFileSelect);
+      form.addEventListener('submit', handleFormSubmit);
+      previewBtn.addEventListener('click', generatePDF);
+      
+      pendingTableBody.addEventListener('click', handlePendingTableClicks);
+      overdueTableBody.addEventListener('click', handleOverdueTableClicks);
+      closeModalBtn.addEventListener('click', () => detailsModal.style.display = 'none');
+      closeReturnModalBtn.addEventListener('click', () => returnModal.style.display = 'none');
+      closeEditModalBtn.addEventListener('click', () => editModal.style.display = 'none');
+      submitReturnBtn.addEventListener('click', handleReturnSubmit);
+      pendingFilter.addEventListener('change', filterPendingPasses);
+      printPendingReport.addEventListener('click', printPendingReportPDF);
+      printOverdueReport.addEventListener('click', printOverdueReportPDF);
+      userForm.addEventListener('submit', handleUserFormSubmit);
+
+      // --- FUNCTIONS ---
+      function openTab(tabName) {
+        // Hide all tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.classList.remove('active');
+        });
+        
+        // Deactivate all tab buttons
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+          tab.classList.remove('active');
+        });
+        
+        // Activate the clicked tab
+        document.getElementById(tabName).classList.add('active');
+        
+        // Activate the clicked tab button
+        event.currentTarget.classList.add('active');
+      }
+
+      function addItemRow() {
+        const div = document.createElement('div');
+        div.className = 'item-row grid grid-cols-12 gap-2 items-center';
+        div.innerHTML = `
+          <div class="col-span-5"><input type="text" placeholder="Item Description" class="item-desc w-full p-2 border border-gray-300 rounded-md" required></div>
+          <div class="col-span-3"><input type="text" placeholder="Quantity" class="item-qty w-full p-2 border border-gray-300 rounded-md" required></div>
+          <div class="col-span-3">
+            <select class="item-unit w-full p-2 border border-gray-300 rounded-md">
+              <option value="Nos">Nos</option>
+              <option value="Box">Box</option>
+              <option value="Pcs">Pcs</option>
+              <option value="Kg">Kg</option>
+              <option value="Ltr">Ltr</option>
+              <option value="Set">Set</option>
+            </select>
+          </div>
+          <div class="col-span-1 text-right"><button type="button" class="remove-item-btn text-red-500 hover:text-red-700 font-bold text-xl">&times;</button></div>`;
+        itemsContainer.appendChild(div);
+        updatePreview();
+      }
+
+      function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) {
+          fileData = null;
+          imagePreview.classList.add('hidden');
+          previewImage.classList.add('hidden');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          fileData = {
+            bytes: e.target.result.split(',')[1],
+            mimeType: file.type,
+            fileName: file.name
+          };
+          imagePreview.src = e.target.result;
+          imagePreview.classList.remove('hidden');
+          previewImage.src = e.target.result;
+          previewImage.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      }
+
+      function updatePreview() {
+        previewPassType.textContent = passTypeSelect.value === 'RGP' ? 'RETURNABLE GATE PASS (RGP)' : 'NON-RETURNABLE GATE PASS (NRGP)';
+        previewIssuedTo.textContent = document.getElementById('issuedTo').value || '-';
+        previewDepartment.textContent = document.getElementById('department').value || '-';
+        previewIssueDate.textContent = document.getElementById('issueDate').value || '-';
+        previewReturnDate.textContent = passTypeSelect.value === 'RGP' ? (document.getElementById('expectedReturnDate').value || '-') : 'N/A';
+        previewPurpose.textContent = document.getElementById('purpose').value || '-';
+        previewAuthorizedBy.textContent = document.getElementById('authorizedBy').value || '-';
+        previewRemarks.textContent = document.getElementById('remarks').value || '-';
+        
+        // Update items preview
+        previewItems.innerHTML = '';
+        const items = Array.from(document.querySelectorAll('.item-row')).map(row => ({
+          description: row.querySelector('.item-desc').value,
+          quantity: row.querySelector('.item-qty').value,
+          unit: row.querySelector('.item-unit').value
+        })).filter(item => item.description && item.quantity);
+        
+        if (items.length === 0) {
+          previewItems.innerHTML = '<p class="text-gray-500">No items added</p>';
+        } else {
+          items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'flex justify-between';
+            itemDiv.innerHTML = `<span>${item.description}</span><span>${item.quantity} ${item.unit}</span>`;
+            previewItems.appendChild(itemDiv);
+          });
+        }
+      }
+
+      function handleFormSubmit(e) {
+        e.preventDefault();
+        setLoadingState(true);
+
+        const items = Array.from(document.querySelectorAll('.item-row')).map(row => ({
+          description: row.querySelector('.item-desc').value,
+          quantity: row.querySelector('.item-qty').value,
+          unit: row.querySelector('.item-unit').value
+        })).filter(item => item.description && item.quantity);
+
+        if (items.length === 0) {
+            showToast('Please add at least one item.', 'error');
+            setLoadingState(false);
+            return;
+        }
+
+        const formData = {
+          passType: form.passType.value,
+          issuedTo: form.issuedTo.value,
+          department: form.department.value,
+          issueDate: form.issueDate.value,
+          purpose: form.purpose.value,
+          expectedReturnDate: form.expectedReturnDate.value,
+          authorizedBy: form.authorizedBy.value,
+          remarks: form.remarks.value,
+          items: items
+        };
+        
+        const payload = { formData, fileData };
+
+        google.script.run
+          .withSuccessHandler(handleFormSuccess)
+          .withFailureHandler(handleFormFailure)
+          .submitGatePass(payload);
+      }
+      
+      function handlePendingTableClicks(e) {
+        const target = e.target;
+        const passId = target.closest('tr')?.dataset.id;
+        if (!passId) return;
+
+        if (target.classList.contains('return-btn')) {
+            const pass = pendingPassesData.find(p => p.GatePassID === passId);
+            if (pass) {
+              currentPassBeingReturned = pass;
+              showReturnModal(pass);
+            }
+        } else if (target.classList.contains('details-btn')) {
+            showDetailsModal(passId);
+        } else if (target.classList.contains('edit-btn')) {
+            const pass = pendingPassesData.find(p => p.GatePassID === passId);
+            if (pass) {
+              currentPassBeingEdited = pass;
+              showEditModal(pass);
+            }
+        }
+      }
+      
+      function handleOverdueTableClicks(e) {
+        const target = e.target;
+        const passId = target.closest('tr')?.dataset.id;
+        if (!passId) return;
+
+        if (target.classList.contains('return-btn')) {
+            const pass = overduePassesData.find(p => p.GatePassID === passId);
+            if (pass) {
+              currentPassBeingReturned = pass;
+              showReturnModal(pass);
+            }
+        } else if (target.classList.contains('details-btn')) {
+            showDetailsModal(passId);
+        }
+      }
+      
+      function showDetailsModal(passId) {
+        const pass = pendingPassesData.find(p => p.GatePassID === passId) || 
+                    overduePassesData.find(p => p.GatePassID === passId);
+        if (!pass) return;
+
+        let itemsHtml = '<ul class="list-disc list-inside space-y-1">';
+        pass.ItemsJSON.forEach(item => {
+            itemsHtml += `<li><strong>${item.quantity} ${item.unit || ''}</strong> - ${item.description}</li>`;
+        });
+        itemsHtml += '</ul>';
+
+        modalContent.innerHTML = `
+            <div class="space-y-4">
+                <div><span class="font-semibold text-gray-500">Pass ID:</span> <span class="font-bold text-blue-600">${pass.GatePassID}</span></div>
+                <div><span class="font-semibold text-gray-500">Issued To:</span> ${pass.IssuedTo}</div>
+                <div><span class="font-semibold text-gray-500">Department:</span> ${pass.Department}</div>
+                <div><span class="font-semibold text-gray-500">Issue Date:</span> ${pass.IssueDate}</div>
+                <div><span class="font-semibold text-gray-500">Expected Return:</span> ${pass.ExpectedReturnDate}</div>
+                <div><span class="font-semibold text-gray-500">Purpose:</span> ${pass.Purpose}</div>
+                <div class="pt-2 border-t"><h4 class="font-semibold text-gray-600 mb-2">Items:</h4>${itemsHtml}</div>
+                ${pass.ImageURL ? `<div class="pt-2 border-t"><h4 class="font-semibold text-gray-600 mb-2">Attachment:</h4><a href="${pass.ImageURL}" target="_blank" rel="noopener noreferrer"><img src="${pass.ImageURL}" class="rounded-md max-h-64 border" alt="Attachment"></a></div>` : ''}
+                ${currentUserRole === 'admin' ? `<div class="pt-4 text-right"><button class="edit-btn px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" data-id="${pass.GatePassID}">Edit Pass</button></div>` : ''}
+            </div>
+        `;
+        
+        // Add event listener for edit button if admin
+        if (currentUserRole === 'admin') {
+          document.querySelector('.edit-btn')?.addEventListener('click', (e) => {
+            const passId = e.target.dataset.id;
+            const pass = pendingPassesData.find(p => p.GatePassID === passId) || 
+                         overduePassesData.find(p => p.GatePassID === passId);
+            if (pass) {
+              currentPassBeingEdited = pass;
+              showEditModal(pass);
+            }
+          });
+        }
+        
+        detailsModal.style.display = 'block';
+      }
+
+      function showReturnModal(pass) {
+        actualReturnDateInput.valueAsDate = new Date();
+        returnRemarksInput.value = '';
+        
+        // Populate items to return
+        returnItemsContainer.innerHTML = '';
+        pass.ItemsJSON.forEach((item, index) => {
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'return-item-row';
+          itemDiv.innerHTML = `
+            <div>${item.description}</div>
+            <div>
+              <select class="w-full p-2 border border-gray-300 rounded-md return-status" data-index="${index}">
+                <option value="full">Full Return</option>
+                <option value="partial">Partial Return</option>
+                <option value="none">Not Returned</option>
+              </select>
+            </div>
+            <div>
+              <input type="number" class="w-full p-2 border border-gray-300 rounded-md return-qty" 
+                value="${item.quantity}" min="0" max="${item.quantity}" step="0.01"
+                data-original="${item.quantity}" data-index="${index}">
+            </div>
+            <div>${item.unit || 'Nos'}</div>
+          `;
+          returnItemsContainer.appendChild(itemDiv);
+        });
+        
+        returnModal.style.display = 'block';
+      }
+
+      function showEditModal(pass) {
+        editModalContent.innerHTML = `
+          <form id="editPassForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="md:col-span-2">
+                <label for="editPassType" class="block text-sm font-medium text-gray-700 mb-1">Pass Type</label>
+                <select id="editPassType" name="passType" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled>
+                  <option value="RGP" ${pass.PassType === 'RGP' ? 'selected' : ''}>Returnable Gate Pass (RGP)</option>
+                  <option value="NRGP" ${pass.PassType === 'NRGP' ? 'selected' : ''}>Non-Returnable Gate Pass (NRGP)</option>
+                </select>
+              </div>
+              <div>
+                <label for="editIssuedTo" class="block text-sm font-medium text-gray-700 mb-1">Issued To (Name/Vendor)</label>
+                <input type="text" id="editIssuedTo" name="issuedTo" value="${pass.IssuedTo}" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+              </div>
+              <div>
+                <label for="editDepartment" class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <select id="editDepartment" name="department" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                  <option ${pass.Department === 'F&B Service' ? 'selected' : ''}>F&B Service</option>
+                  <option ${pass.Department === 'F&B Production' ? 'selected' : ''}>F&B Production</option>
+                  <option ${pass.Department === 'Housekeeping' ? 'selected' : ''}>Housekeeping</option>
+                  <option ${pass.Department === 'Front Office' ? 'selected' : ''}>Front Office</option>
+                  <option ${pass.Department === 'Engineering' ? 'selected' : ''}>Engineering</option>
+                  <option ${pass.Department === 'Sales & Marketing' ? 'selected' : ''}>Sales & Marketing</option>
+                  <option ${pass.Department === 'HR' ? 'selected' : ''}>HR</option>
+                  <option ${pass.Department === 'Security' ? 'selected' : ''}>Security</option>
+                  <option ${pass.Department === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+              </div>
+              <div>
+                <label for="editIssueDate" class="block text-sm font-medium text-gray-700 mb-1">Issue Date</label>
+                <input type="date" id="editIssueDate" name="issueDate" value="${pass.IssueDate.split('T')[0]}" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+              </div>
+              <div id="editReturnDateContainer" style="display: ${pass.PassType === 'RGP' ? 'block' : 'none'}">
+                <label for="editExpectedReturnDate" class="block text-sm font-medium text-gray-700 mb-1">Expected Return Date</label>
+                <input type="date" id="editExpectedReturnDate" name="expectedReturnDate" value="${pass.ExpectedReturnDate ? pass.ExpectedReturnDate.split('T')[0] : ''}" class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+              </div>
+              <div class="md:col-span-2">
+                <label for="editPurpose" class="block text-sm font-medium text-gray-700 mb-1">Purpose / Reason for Outgoing</label>
+                <input type="text" id="editPurpose" name="purpose" value="${pass.Purpose}" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+              </div>
+              <div class="md:col-span-2">
+                <label for="editAuthorizedBy" class="block text-sm font-medium text-gray-700 mb-1">Authorized By</label>
+                <input type="text" id="editAuthorizedBy" name="authorizedBy" value="${pass.AuthorizedBy}" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+              </div>
+              <div class="md:col-span-2">
+                <label for="editRemarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks (Optional)</label>
+                <input type="text" id="editRemarks" name="remarks" value="${pass.Remarks || ''}" class="w-full p-2 border border-gray-300 rounded-md shadow-sm">
+              </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t">
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-medium text-gray-800">Items</h3>
+                <button type="button" id="editAddItemBtn" class="px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">+ Add Item</button>
+              </div>
+              <div id="editItemsContainer" class="space-y-3">
+                ${pass.ItemsJSON.map((item, index) => `
+                  <div class="item-row grid grid-cols-12 gap-2 items-center">
+                    <div class="col-span-5"><input type="text" placeholder="Item Description" value="${item.description}" class="edit-item-desc w-full p-2 border border-gray-300 rounded-md" required></div>
+                    <div class="col-span-3"><input type="text" placeholder="Quantity" value="${item.quantity}" class="edit-item-qty w-full p-2 border border-gray-300 rounded-md" required></div>
+                    <div class="col-span-3">
+                      <select class="edit-item-unit w-full p-2 border border-gray-300 rounded-md">
+                        <option value="Nos" ${item.unit === 'Nos' ? 'selected' : ''}>Nos</option>
+                        <option value="Box" ${item.unit === 'Box' ? 'selected' : ''}>Box</option>
+                        <option value="Pcs" ${item.unit === 'Pcs' ? 'selected' : ''}>Pcs</option>
+                        <option value="Kg" ${item.unit === 'Kg' ? 'selected' : ''}>Kg</option>
+                        <option value="Ltr" ${item.unit === 'Ltr' ? 'selected' : ''}>Ltr</option>
+                        <option value="Set" ${item.unit === 'Set' ? 'selected' : ''}>Set</option>
+                      </select>
+                    </div>
+                    <div class="col-span-1 text-right"><button type="button" class="remove-item-btn text-red-500 hover:text-red-700 font-bold text-xl">&times;</button></div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="mt-8 text-right">
+              <button type="button" id="cancelEditBtn" class="mr-4 px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50">Cancel</button>
+              <button type="submit" id="submitEditBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+            </div>
+          </form>
+        `;
+
+        // Add event listeners for edit form
+        document.getElementById('editPassType').addEventListener('change', (e) => {
+          document.getElementById('editReturnDateContainer').style.display = e.target.value === 'RGP' ? 'block' : 'none';
+        });
+
+        document.getElementById('editAddItemBtn').addEventListener('click', () => {
+          const div = document.createElement('div');
+          div.className = 'item-row grid grid-cols-12 gap-2 items-center';
+          div.innerHTML = `
+            <div class="col-span-5"><input type="text" placeholder="Item Description" class="edit-item-desc w-full p-2 border border-gray-300 rounded-md" required></div>
+            <div class="col-span-3"><input type="text" placeholder="Quantity" class="edit-item-qty w-full p-2 border border-gray-300 rounded-md" required></div>
+            <div class="col-span-3">
+              <select class="edit-item-unit w-full p-2 border border-gray-300 rounded-md">
+                <option value="Nos">Nos</option>
+                <option value="Box">Box</option>
+                <option value="Pcs">Pcs</option>
+                <option value="Kg">Kg</option>
+                <option value="Ltr">Ltr</option>
+                <option value="Set">Set</option>
+              </select>
+            </div>
+            <div class="col-span-1 text-right"><button type="button" class="remove-item-btn text-red-500 hover:text-red-700 font-bold text-xl">&times;</button></div>
+          `;
+          document.getElementById('editItemsContainer').appendChild(div);
+        });
+
+        document.getElementById('editItemsContainer').addEventListener('click', (e) => {
+          if (e.target.classList.contains('remove-item-btn')) {
+            e.target.closest('.item-row').remove();
+          }
+        });
+
+        document.getElementById('cancelEditBtn').addEventListener('click', () => {
+          editModal.style.display = 'none';
+        });
+
+        document.getElementById('editPassForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          handleEditSubmit(pass);
+        });
+
+        editModal.style.display = 'block';
+      }
+
+      function handleReturnSubmit() {
+        const actualReturnDate = actualReturnDateInput.value;
+        const returnRemarks = returnRemarksInput.value;
+        
+        if (!actualReturnDate) {
+          showToast('Please select actual return date', 'error');
+          return;
+        }
+        
+        // Collect return status for each item
+        const returnedItems = [];
+        const pendingItems = [];
+        
+        document.querySelectorAll('.return-item-row').forEach(row => {
+          const index = row.querySelector('.return-status').dataset.index;
+          const originalItem = currentPassBeingReturned.ItemsJSON[index];
+          const status = row.querySelector('.return-status').value;
+          const returnedQty = parseFloat(row.querySelector('.return-qty').value) || 0;
+          const originalQty = parseFloat(row.querySelector('.return-qty').dataset.original);
+          
+          if (status === 'full') {
+            returnedItems.push({
+              description: originalItem.description,
+              quantity: originalQty,
+              unit: originalItem.unit
+            });
+          } else if (status === 'partial') {
+            returnedItems.push({
+              description: originalItem.description,
+              quantity: returnedQty,
+              unit: originalItem.unit
+            });
+            pendingItems.push({
+              description: originalItem.description,
+              quantity: originalQty - returnedQty,
+              unit: originalItem.unit
+            });
+          } else if (status === 'none') {
+            pendingItems.push({
+              description: originalItem.description,
+              quantity: originalQty,
+              unit: originalItem.unit
+            });
+          }
+        });
+        
+        const payload = {
+          rowNumber: currentPassBeingReturned.rowNumber,
+          passId: currentPassBeingReturned.GatePassID,
+          actualReturnDate: actualReturnDate,
+          returnRemarks: returnRemarks,
+          returnedItems: returnedItems,
+          pendingItems: pendingItems.length > 0 ? pendingItems : null
+        };
+        
+        google.script.run
+          .withSuccessHandler(response => {
+            showToast(response.message, response.status);
+            returnModal.style.display = 'none';
+            loadPendingReturnablePasses();
+            loadOverduePasses();
+          })
+          .withFailureHandler(handleFormFailure)
+          .markAsReturned(payload);
+      }
+
+      function handleEditSubmit(originalPass) {
+        const items = Array.from(document.querySelectorAll('#editItemsContainer .item-row')).map(row => ({
+          description: row.querySelector('.edit-item-desc').value,
+          quantity: row.querySelector('.edit-item-qty').value,
+          unit: row.querySelector('.edit-item-unit').value
+        })).filter(item => item.description && item.quantity);
+
+        if (items.length === 0) {
+          showToast('Please add at least one item.', 'error');
+          return;
+        }
+
+        const formData = {
+          passType: document.getElementById('editPassType').value,
+          issuedTo: document.getElementById('editIssuedTo').value,
+          department: document.getElementById('editDepartment').value,
+          issueDate: document.getElementById('editIssueDate').value,
+          purpose: document.getElementById('editPurpose').value,
+          expectedReturnDate: document.getElementById('editExpectedReturnDate').value,
+          authorizedBy: document.getElementById('editAuthorizedBy').value,
+          remarks: document.getElementById('editRemarks').value,
+          items: items
+        };
+        
+        const payload = {
+          rowNumber: originalPass.rowNumber,
+          passId: originalPass.GatePassID,
+          formData: formData
+        };
+
+        google.script.run
+          .withSuccessHandler(response => {
+            showToast(response.message, response.status);
+            editModal.style.display = 'none';
+            loadPendingReturnablePasses();
+            loadOverduePasses();
+          })
+          .withFailureHandler(handleFormFailure)
+          .updateGatePass(payload);
+      }
+
+      function handleUserFormSubmit(e) {
+        e.preventDefault();
+        const userData = {
+          email: document.getElementById('userEmail').value,
+          name: document.getElementById('userName').value,
+          role: document.getElementById('userRole').value,
+          department: document.getElementById('userDepartment').value
+        };
+        
+        google.script.run
+          .withSuccessHandler(response => {
+            showToast(response.message, response.status);
+            document.getElementById('userForm').reset();
+            loadUsers();
+          })
+          .withFailureHandler(handleFormFailure)
+          .addUser(userData);
+      }
+
+      function showToast(message, type = 'success') {
+          toast.textContent = message;
+          toast.className = `toast show ${type}`;
+          setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+      }
+
+      function setLoadingState(isLoading) {
+        submitButton.disabled = isLoading;
+        submitButton.textContent = isLoading ? 'Creating...' : 'Create Pass';
+      }
+
+      function showPendingLoader(show) {
+        loader.style.display = show ? 'flex' : 'none';
+        if (show) {
+            pendingTable.classList.add('hidden');
+            noPendingMessage.classList.add('hidden');
+        }
+      }
+
+      function showOverdueLoader(show) {
+        overdueLoader.style.display = show ? 'flex' : 'none';
+        if (show) {
+            overdueTable.classList.add('hidden');
+            noOverdueMessage.classList.add('hidden');
+        }
+      }
+
+      function handleFormSuccess(response) {
+        setLoadingState(false);
+        if (response.status === 'success') {
+          showToast(response.message, 'success');
+          form.reset();
+          itemsContainer.innerHTML = '';
+          addItemRow();
+          imagePreview.classList.add('hidden');
+          imagePreview.src = '';
+          previewImage.classList.add('hidden');
+          fileData = null;
+          issueDateInput.valueAsDate = new Date();
+          passTypeSelect.dispatchEvent(new Event('change'));
+          loadPendingReturnablePasses();
+          loadOverduePasses();
+          
+          // Generate PDF automatically
+          generatePDF(response.newPassId);
+        } else {
+          handleFormFailure(response);
+        }
+      }
+
+      function handleFormFailure(error) {
+        setLoadingState(false);
+        showToast(error.message || 'An unknown error occurred.', 'error');
+      }
+      
+      function loadPendingReturnablePasses() {
+        showPendingLoader(true);
+        google.script.run
+          .withSuccessHandler(displayPendingPasses)
+          .withFailureHandler(handleFormFailure)
+          .getPendingReturnablePasses();
+      }
+      
+      function loadOverduePasses() {
+        showOverdueLoader(true);
+        google.script.run
+          .withSuccessHandler(displayOverduePasses)
+          .withFailureHandler(handleFormFailure)
+          .getOverduePasses();
+      }
+      
+      function loadUsers() {
+        google.script.run
+          .withSuccessHandler(displayUsers)
+          .withFailureHandler(handleFormFailure)
+          .getUsers();
+      }
+      
+      function displayPendingPasses(response) {
+        showPendingLoader(false);
+        pendingTableBody.innerHTML = '';
+
+        if (response.status === 'success' && response.data.length > 0) {
+          pendingPassesData = response.data;
+          noPendingMessage.classList.add('hidden');
+          pendingTable.classList.remove('hidden');
+          
+          response.data.forEach(pass => {
+            const row = document.createElement('tr');
+            row.dataset.id = pass.GatePassID;
+            
+            // Calculate days remaining (if expected return date exists)
+            let daysRemaining = '';
+            if (pass.ExpectedReturnDate) {
+              const returnDate = new Date(pass.ExpectedReturnDate);
+              const today = new Date();
+              const diffTime = returnDate - today;
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              daysRemaining = diffDays > 0 ? `${diffDays}d left` : diffDays < 0 ? `${Math.abs(diffDays)}d overdue` : 'Due today';
+            }
+            
+            row.innerHTML = `
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${pass.GatePassID}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${pass.IssuedTo}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${pass.Department}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${pass.IssueDate}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${pass.ExpectedReturnDate || 'N/A'} ${daysRemaining ? `<span class="text-xs ${daysRemaining.includes('overdue') ? 'text-red-500' : daysRemaining.includes('left') ? 'text-green-500' : 'text-yellow-500'}">${daysRemaining}</span>` : ''}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium space-x-4">
+                <button data-row="${pass.rowNumber}" class="return-btn text-green-600 hover:text-green-900 disabled:text-gray-400">Return</button>
+                <button class="details-btn text-blue-600 hover:text-blue-900">Details</button>
+                ${currentUserRole === 'admin' ? `<button class="edit-btn text-purple-600 hover:text-purple-900">Edit</button>` : ''}
+              </td>`;
+            pendingTableBody.appendChild(row);
+          });
+        } else {
+          pendingPassesData = [];
+          pendingTable.classList.add('hidden');
+          noPendingMessage.classList.remove('hidden');
+          if(response.status === 'error') {
+              noPendingMessage.textContent = 'Error loading passes.';
+              showToast(response.message, 'error');
+          }
+        }
+      }
+      
+      function displayOverduePasses(response) {
+        showOverdueLoader(false);
+        overdueTableBody.innerHTML = '';
+
+        if (response.status === 'success' && response.data.length > 0) {
+          overduePassesData = response.data;
+          noOverdueMessage.classList.add('hidden');
+          overdueTable.classList.remove('hidden');
+          
+          response.data.forEach(pass => {
+            const row = document.createElement('tr');
+            row.dataset.id = pass.GatePassID;
+            
+            // Calculate days overdue
+            let daysOverdue = '';
+            if (pass.ExpectedReturnDate) {
+              const returnDate = new Date(pass.ExpectedReturnDate);
+              const today = new Date();
+              const diffTime = today - returnDate;
+              daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            }
+            
+            row.innerHTML = `
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${pass.GatePassID}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${pass.IssuedTo}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${pass.Department}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-red-600">${daysOverdue} days</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium space-x-4">
+                <button data-row="${pass.rowNumber}" class="return-btn text-green-600 hover:text-green-900 disabled:text-gray-400">Return</button>
+                <button class="details-btn text-blue-600 hover:text-blue-900">Details</button>
+              </td>`;
+            overdueTableBody.appendChild(row);
+          });
+        } else {
+          overduePassesData = [];
+          overdueTable.classList.add('hidden');
+          noOverdueMessage.classList.remove('hidden');
+          if(response.status === 'error') {
+              noOverdueMessage.textContent = 'Error loading overdue passes.';
+              showToast(response.message, 'error');
+          }
+        }
+      }
+      
+      function displayUsers(response) {
+        if (response.status === 'success' && response.data.length > 0) {
+          usersData = response.data;
+          usersTableBody.innerHTML = '';
+          
+          response.data.forEach(user => {
+            const row = document.createElement('tr');
+            row.dataset.email = user.email;
+            row.innerHTML = `
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${user.name}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${user.email}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${user.role}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${user.department}</td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium space-x-4">
+                <button class="edit-user-btn text-blue-600 hover:text-blue-900">Edit</button>
+                <button class="delete-user-btn text-red-600 hover:text-red-900">Delete</button>
+              </td>`;
+            usersTableBody.appendChild(row);
+          });
+          
+          // Add event listeners for user actions
+          document.querySelectorAll('.edit-user-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const email = e.target.closest('tr').dataset.email;
+              const user = usersData.find(u => u.email === email);
+              if (user) {
+                editUser(user);
+              }
+            });
+          });
+          
+          document.querySelectorAll('.delete-user-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const email = e.target.closest('tr').dataset.email;
+              if (confirm(`Are you sure you want to delete user ${email}?`)) {
+                deleteUser(email);
+              }
+            });
+          });
+        }
+      }
+      
+      function editUser(user) {
+        document.getElementById('userEmail').value = user.email;
+        document.getElementById('userName').value = user.name;
+        document.getElementById('userRole').value = user.role;
+        document.getElementById('userDepartment').value = user.department;
+        
+        // Scroll to form
+        document.getElementById('userForm').scrollIntoView({ behavior: 'smooth' });
+      }
+      
+      function deleteUser(email) {
+        google.script.run
+          .withSuccessHandler(response => {
+            showToast(response.message, response.status);
+            loadUsers();
+          })
+          .withFailureHandler(handleFormFailure)
+          .deleteUser(email);
+      }
+      
+      function filterPendingPasses() {
+        const filterValue = pendingFilter.value;
+        const rows = pendingTableBody.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+          const passId = row.dataset.id;
+          const pass = pendingPassesData.find(p => p.GatePassID === passId);
+          
+          if (!pass) return;
+          
+          let showRow = true;
+          
+          if (filterValue === 'overdue' && pass.ExpectedReturnDate) {
+            const returnDate = new Date(pass.ExpectedReturnDate);
+            const today = new Date();
+            showRow = returnDate < today;
+          } else if (filterValue === 'dueToday' && pass.ExpectedReturnDate) {
+            const returnDate = new Date(pass.ExpectedReturnDate);
+            const today = new Date();
+            showRow = returnDate.toDateString() === today.toDateString();
+          } else if (filterValue === 'dueThisWeek' && pass.ExpectedReturnDate) {
+            const returnDate = new Date(pass.ExpectedReturnDate);
+            const today = new Date();
+            const nextWeek = new Date(today);
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            showRow = returnDate > today && returnDate <= nextWeek;
+          }
+          
+          row.style.display = showRow ? '' : 'none';
+        });
+      }
+      
+      function generatePDF(passId = null) {
+        // Use the preview pass if no passId provided
+        const passToPrint = passId ? 
+          (pendingPassesData.find(p => p.GatePassID === passId) || 
+           overduePassesData.find(p => p.GatePassID === passId)) : 
+          {
+            GatePassID: 'NEW',
+            PassType: passTypeSelect.value,
+            IssuedTo: document.getElementById('issuedTo').value,
+            Department: document.getElementById('department').value,
+            IssueDate: document.getElementById('issueDate').value,
+            ExpectedReturnDate: document.getElementById('expectedReturnDate').value,
+            Purpose: document.getElementById('purpose').value,
+            AuthorizedBy: document.getElementById('authorizedBy').value,
+            Remarks: document.getElementById('remarks').value,
+            ItemsJSON: Array.from(document.querySelectorAll('.item-row')).map(row => ({
+              description: row.querySelector('.item-desc').value,
+              quantity: row.querySelector('.item-qty').value,
+              unit: row.querySelector('.item-unit').value
+            })).filter(item => item.description && item.quantity),
+            ImageURL: imagePreview.src || ''
+          };
+        
+        if (!passToPrint) {
+          showToast('Pass not found for PDF generation', 'error');
+          return;
+        }
+        
+        const doc = new jsPDF();
+        
+        // Add header
+        doc.setFontSize(18);
+        doc.setTextColor(40);
+        doc.text(passToPrint.PassType === 'RGP' ? 'RETURNABLE GATE PASS (RGP)' : 'NON-RETURNABLE GATE PASS (NRGP)', 105, 15, null, null, 'center');
+        
+        doc.setFontSize(12);
+        doc.text(`Pass ID: ${passToPrint.GatePassID}`, 14, 25);
+        
+        // Add horizontal line
+        doc.line(14, 30, 196, 30);
+        
+        // Add pass details
+        doc.setFontSize(12);
+        doc.text(`Issued To: ${passToPrint.IssuedTo || '-'}`, 14, 40);
+        doc.text(`Department: ${passToPrint.Department || '-'}`, 105, 40);
+        doc.text(`Issue Date: ${passToPrint.IssueDate || '-'}`, 14, 50);
+        doc.text(`Expected Return: ${passToPrint.PassType === 'RGP' ? (passToPrint.ExpectedReturnDate || '-') : 'N/A'}`, 105, 50);
+        doc.text(`Purpose: ${passToPrint.Purpose || '-'}`, 14, 60);
+        doc.text(`Authorized By: ${passToPrint.AuthorizedBy || '-'}`, 105, 60);
+        
+        // Add items table
+        doc.setFontSize(12);
+        doc.text('Items:', 14, 75);
+        
+        // Table headers
+        doc.setFillColor(240, 240, 240);
+        doc.rect(14, 80, 182, 10, 'F');
+        doc.text('Description', 16, 87);
+        doc.text('Quantity', 150, 87);
+        
+        // Table rows
+        let y = 90;
+        passToPrint.ItemsJSON.forEach(item => {
+          doc.text(item.description, 16, y);
+          doc.text(`${item.quantity} ${item.unit || ''}`, 150, y);
+          y += 7;
+          
+          // Add new page if needed
+          if (y > 250) {
+            doc.addPage();
+            y = 20;
+          }
+        });
+        
+        // Add remarks
+        if (passToPrint.Remarks) {
+          y += 10;
+          doc.text(`Remarks: ${passToPrint.Remarks}`, 14, y);
+        }
+        
+        // Add image if exists
+        if (passToPrint.ImageURL) {
+          // In a real implementation, you would need to convert the image to a data URL
+          // and add it to the PDF using doc.addImage()
+          // This is simplified for the example
+          y += 20;
+          doc.text('Attachment:', 14, y);
+          // doc.addImage(passToPrint.ImageURL, 'JPEG', 14, y + 5, 50, 50);
+        }
+        
+        // Add footer
+        doc.setFontSize(10);
+        doc.setTextColor(150);
+        doc.text('Generated by Hotel Gate Pass System', 105, 285, null, null, 'center');
+        
+        // Save the PDF
+        doc.save(`GatePass_${passToPrint.GatePassID}.pdf`);
+      }
+      
+      function printPendingReportPDF() {
+        const filteredPasses = pendingPassesData.filter(pass => {
+          const filterValue = pendingFilter.value;
+          if (filterValue === 'all') return true;
+          if (!pass.ExpectedReturnDate) return false;
+          
+          const returnDate = new Date(pass.ExpectedReturnDate);
+          const today = new Date();
+          
+          if (filterValue === 'overdue') return returnDate < today;
+          if (filterValue === 'dueToday') return returnDate.toDateString() === today.toDateString();
+          if (filterValue === 'dueThisWeek') {
+            const nextWeek = new Date(today);
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            return returnDate > today && returnDate <= nextWeek;
+          }
+          return true;
+        });
+        
+        generateReportPDF(filteredPasses, 'Pending Gate Passes Report');
+      }
+      
+      function printOverdueReportPDF() {
+        generateReportPDF(overduePassesData, 'Overdue Gate Passes Report');
+      }
+      
+      function generateReportPDF(passes, title) {
+        const doc = new jsPDF();
+        
+        // Add title
+        doc.setFontSize(18);
+        doc.setTextColor(40);
+        doc.text(title, 105, 15, null, null, 'center');
+        doc.setFontSize(10);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, null, null, 'center');
+        
+        // Add table headers
+        doc.setFontSize(12);
+        doc.setFillColor(240, 240, 240);
+        
+        const headers = [
+          { text: 'Pass ID', x: 15 },
+          { text: 'Issued To', x: 45 },
+          { text: 'Department', x: 85 },
+          { text: 'Issue Date', x: 120 },
+          { text: 'Expected Return', x: 150 },
+          { text: 'Status', x: 180 }
+        ];
+        
+        headers.forEach(header => {
+          doc.text(header.text, header.x, 35);
+        });
+        
+        doc.line(14, 37, 196, 37);
+        
+        // Add pass rows
+        let y = 45;
+        passes.forEach(pass => {
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+          }
+          
+          // Calculate status
+          let status = '';
+          if (pass.ExpectedReturnDate) {
+            const returnDate = new Date(pass.ExpectedReturnDate);
+            const today = new Date();
+            const diffTime = returnDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            status = diffDays > 0 ? `${diffDays}d left` : diffDays < 0 ? `${Math.abs(diffDays)}d overdue` : 'Due today';
+          }
+          
+          doc.setFontSize(10);
+          doc.text(pass.GatePassID, 15, y);
+          doc.text(pass.IssuedTo, 45, y);
+          doc.text(pass.Department, 85, y);
+          doc.text(pass.IssueDate, 120, y);
+          doc.text(pass.ExpectedReturnDate || 'N/A', 150, y);
+          doc.text(status, 180, y);
+          
+          y += 7;
+        });
+        
+        // Add summary
+        y += 10;
+        doc.setFontSize(12);
+        doc.text(`Total: ${passes.length} passes`, 14, y);
+        
+        // Add footer
+        doc.setFontSize(10);
+        doc.setTextColor(150);
+        doc.text('Generated by Hotel Gate Pass System', 105, 285, null, null, 'center');
+        
+        // Save the PDF
+        doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
+      }
+    };
+  </script>
+</body>
+</html>
